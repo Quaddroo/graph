@@ -40,15 +40,18 @@ def set_up_floating_point_framebufer():
     """
 
     max_texture_size = glGetIntegerv(GL_MAX_TEXTURE_SIZE)
+    width = max_texture_size
+#     height = max_texture_size
+    height = 1
 #     height = 1 # can this be more? probably not?
-    height = 2 # can this be more? probably not?
+#     height = 2 # can this be more? probably not?
 
     framebuffer = glGenFramebuffers(1)
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
 
     texture = glGenTextures(1)
     glBindTexture(GL_TEXTURE_2D, texture)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, max_texture_size, height, 0, GL_RGBA, GL_FLOAT, None)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, None)
 
     # Set texture parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
@@ -60,7 +63,8 @@ def set_up_floating_point_framebufer():
 
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
     if status != GL_FRAMEBUFFER_COMPLETE:
-        print("Framebuffer is not complete")
+        raise Exception("Framebuffer is not complete")
+    return framebuffer
 
 def create_texture(data, texture_unit):
     # Convert data to float32 for texture compatibility
@@ -137,7 +141,7 @@ glGetError()
 setup_pygame()
 
 # %%
-set_up_floating_point_framebufer()
+framebuffer = set_up_floating_point_framebufer()
 
 # %%
 # Create textures for x and y
@@ -156,11 +160,9 @@ height = 1
 max_texture_size = glGetIntegerv(GL_MAX_TEXTURE_SIZE)
 
 
-# %%
 x_texture_id = create_texture(x[0:max_texture_size], 0)
 
 
-# %%
 y_texture_id = create_texture(y[0:max_texture_size], 1)
 
 
@@ -266,11 +268,19 @@ vertices = np.array([
 vao = glGenVertexArrays(1)
 vbo = glGenBuffers(1)
 
+# %%
 bind_and_set_textures(shader_program, x_texture_id, y_texture_id)
 
+# %%
 glBindVertexArray(vao)
 glBindBuffer(GL_ARRAY_BUFFER, vbo)
+glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
+glViewport(0, 0, width, height)
+
+# %%
 glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL_STATIC_DRAW)
+
+# %%
 
 # Enable vertex attribute (position)
 glEnableVertexAttribArray(0)
@@ -283,6 +293,7 @@ render_fullscreen_quad()
 
 # Unbind for cleanliness; they should be bound when rendering
 glBindBuffer(GL_ARRAY_BUFFER, 0)
+glBindFramebuffer(GL_FRAMEBUFFER, 0)
 glBindVertexArray(0)
 
 # %%
@@ -291,7 +302,11 @@ glBindVertexArray(0)
 # width - len(y)
 # 
 
+
+glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
 results = glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT)
+glBindFramebuffer(GL_FRAMEBUFFER, 0)
+
 # results = glReadPixels(0, 0, width, height, GL_RGBA32F, GL_FLOAT)
 
 
