@@ -19,7 +19,9 @@ The main goals are:
 [ ] For some reason, resampling in bg thread blocks it from running, making  
 launchtime really slow  
 [ ] Sometimes, there is a tiny bit of lag when a new resample comes along  
-[ ] Advanced cutting strategies  
+[ ] Advanced cutting strategies:
+    + In sequential data, find cuts by iterating in larger chunks (every x
+      fraction of data), and then iterating over the correct found chunk.
 [ ] Code cleanup  
 [ ] cuts should include an extra datapoint to avoid lines disappearing when a  
 point is out of range  
