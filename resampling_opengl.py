@@ -323,7 +323,50 @@ void main() {
 
 # %%
 
-def resample_opengl(data, n_value):
+def resample_opengl(data, n_value, batch_size=1000000):
+    batch_start = 0
+    resampled_batches = []
+    while batch_start < len(data):
+        batch_end = batch_start + batch_size
+        relevant_data = data[batch_start:batch_end]
+        if batch_end > len(data):
+            padding = batch_end - len(data)
+            padded_data = np.pad(relevant_data, ((0, padding), (0, 0)), 'constant')
+            resampled_batch = resample_opengl_1M(padded_data, n_value)[:len(relevant_data)]
+        else:
+            resampled_batch = resample_opengl_1M(relevant_data, n_value)
+        resampled_batches.append(resampled_batch)
+        batch_start = batch_end
+
+    combined_array = np.concatenate(resampled_batches, axis=0)
+    return combined_array
+
+def resample_opengl_old(data, n_value, batch_size):
+    batch_size = 1000000
+    batch_start = 0
+    batch_end = batch_start + batch_size
+    resampled_batches = []
+    while batch_end < len(data):
+        relevant_data = data[batch_start:batch_end]
+        resampled_batch = resample_opengl_1M(relevant_data, n_value)
+        resampled_batches.append(resampled_batch)
+        batch_start = batch_end
+        batch_end = batch_start + batch_size
+    if batch_end == len(data):
+        pass
+    else:
+        relevant_data = data[batch_start:len(data)] # + PAD WITH ZEROES
+        resampled_batch = resample_opengl_1M(relevant_data, n_value)
+        resampled_batch = resampled_batch[0: len(data) - batch_start]
+        resampled_batches.append(resampled_batch)
+        
+    # Combine everything here into a single numpy array
+    return combined_array
+        
+def resample_opengl_1M(data, n_value):
+    """
+        Low level function, works well if data is 1M values long.
+    """
     glDisable(GL_BLEND) # Might not be necessary
 
     width, height, framebuffer = setup_environment()

@@ -9,7 +9,7 @@ import numpy as np
 from time import perf_counter_ns
 
 # %%
-data = generate_random_walk(1000000, step_size=0.5)
+data = generate_random_walk(5000000, step_size=0.5)
 
 setup_pygame() # This sets up an opengl environment. Since it must occur no matter what when launching Graph, it is unfair to include in the performance.
 
@@ -28,13 +28,13 @@ OpenGL resample time: {t1 - t0} ns
 Numba + np resample time: {t2 - t1} ns
 OpenGL/Numba: {(t1-t0)/(t2-t1)}
 """)
-
-# %%
 # 
+# # %%
+# # 
 # import os
 # os.environ["PAGER"] = "cat" # avoids it using less to page shit
 # %load_ext line_profiler
 # %lprun -f resample_opengl resample_opengl(data, 4)
+# # 
 # 
-
 # %%
