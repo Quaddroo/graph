@@ -2,7 +2,7 @@
 %load_ext autoreload
 %autoreload 2
 
-from resampling_opengl_2 import resample_opengl
+from resampling_opengl_2 import resample_opengl, setup_environment, setup_pygame
 from graph import LineGraphSequential
 from utils import generate_random_walk
 import numpy as np
@@ -10,6 +10,8 @@ from time import perf_counter_ns
 
 # %%
 data = generate_random_walk(1000000, step_size=0.5)
+
+setup_pygame() # This sets up an opengl environment. Since it must occur no matter what when launching Graph, it is unfair to include in the performance.
 
 t0 = perf_counter_ns()
 resample_1 = resample_opengl(data, 4)
@@ -32,7 +34,6 @@ OpenGL/Numba: {(t1-t0)/(t2-t1)}
 import os
 os.environ["PAGER"] = "cat" # avoids it using less to page shit
 %load_ext line_profiler
-%lprun -f my_func my_func()
-
+%lprun -f resample_opengl resample_opengl(data, 4)
 
 # %%

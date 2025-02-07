@@ -186,7 +186,7 @@ def render_fullscreen_quad(vao, shader_program, n_value):
 def setup_environment():
     glGetError()
 
-    setup_pygame()
+    # setup_pygame() < OMITTED because of how it will usually be used.
 
     width, height = find_optimal_texture_size()
 
