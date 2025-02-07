@@ -11,13 +11,9 @@ import time
 
 # %%
 def split_timestamps_into_f32(timestamps):
-#     test_timestamps = random_walk_data[:, 0][0:5]/100000
     divided_timestamps = timestamps/100000
-    m = np.modf(divided_timestamps)
-    r1 = m[0].astype('float32')
-    r2 = m[1].astype('float32')
-    return r1, r2
-
+    r1, r2 = np.modf(divided_timestamps)
+    return r1.astype('float32'), r2.astype('float32')
 
 def combine_timestamps_into_f64(timestamps1, timestamps2):
     timestamps1 = timestamps1.astype('float64') * 100000
@@ -99,15 +95,18 @@ def set_up_floating_point_framebufer(width, height):
 def prep_data_for_texture(data):
     # Convert data to float32 for texture compatibility
     data = np.array(data, dtype=np.float32)
-    data = np.stack([data, np.zeros_like(data), np.zeros_like(data), np.zeros_like(data)], axis=-1)
+    zeros = np.zeros_like(data) # saves like 1ms
+    data = np.stack([data, zeros, zeros, zeros], axis=-1)
     return data
 
 def prep_timestamps_for_texture(data):
     t1, t2 = split_timestamps_into_f32(data)    
-    data = np.stack([t1, t2, np.zeros_like(data), np.zeros_like(data)], axis=-1)
+    zeros = np.zeros_like(data) # saves like 1ms
+    data = np.stack([t1, t2, zeros, zeros], axis=-1)
     return data
 
 def create_texture(data, texture_unit, fallback_width=None, fallback_height=None):
+    # TODO: WTF IS TEXTURE UNIT? IT SHOULD BE UNIQUE? GUARANTEE UNIQUENESS!!??
     if data is None:
         if not fallback_width or not fallback_height:
             raise Exception("No data provided to create_texture means it needs fallback_width or fallback_height")
@@ -131,10 +130,8 @@ def create_texture(data, texture_unit, fallback_width=None, fallback_height=None
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
     
     # Create texture
+    # 97.5% of time in this call:
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, data)
-#     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, data)
-
-#     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, None)
     
     return texture_id
 
@@ -214,14 +211,15 @@ def generate_initial_data_textures(random_walk_data, width, height):
     y = random_walk_data[:, 1]
     y_length = len(y) 
 
-    x = prep_timestamps_for_texture(x)
-    y = prep_data_for_texture(y)
+#     zeros_like_array = np.zeros_like(x) << optimizing like this makes the code barely slower overall.
+    x = prep_timestamps_for_texture(x) # 46.8% of time in this function
+    y = prep_data_for_texture(y) # 16.1% of time in this function
     x_reshaped = x.reshape(width, height, 4)
     y_reshaped = y.reshape(width, height, 4)
 
-    x_texture_id = create_texture(x_reshaped, 0)
+    x_texture_id = create_texture(x_reshaped, 0) # 22.6% of time in this call
 
-    y_texture_id = create_texture(y_reshaped, 1)
+    y_texture_id = create_texture(y_reshaped, 1) # 15.1% of time in this call
 
     return x_texture_id, y_texture_id
 
@@ -247,9 +245,11 @@ def get_resulting_pixeldata(framebuffer, width, height):
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
 
     glReadBuffer(GL_COLOR_ATTACHMENT0)
+    # 78.4% of time here
     results_0 = glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT)
 
     glReadBuffer(GL_COLOR_ATTACHMENT1)
+    # 21.5% of time here; why less? is it because there is less data? how does it know that?
     results_1 = glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT)
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
@@ -328,6 +328,7 @@ def resample_opengl(data, n_value):
 
     width, height, framebuffer = setup_environment()
 
+    # 57% of time is spent in this call
     x_texture_id, y_texture_id = \
         generate_initial_data_textures(data, width, height)
 
@@ -344,6 +345,7 @@ def resample_opengl(data, n_value):
 
     cleanup_environment_after_drawing()
 
+    # 24.8% of time is spent in this call
     results_0, results_1 = get_resulting_pixeldata(framebuffer, width, height)
 
     new_ys = np.frombuffer(results_1, dtype=np.float32).reshape(-1, 4).reshape(-1, 1)[0:1000000]
@@ -352,6 +354,7 @@ def resample_opengl(data, n_value):
 
     new_xs_1 = np.frombuffer(results_0, dtype=np.float32).reshape(-1, 4)[:, 0].reshape(-1, 1)
 
+    # 8.5% of time is spent in this call
     new_xs = combine_timestamps_into_f64(new_xs_0, new_xs_1)[0:1000000//n_value]
 
     new_xs = np.repeat(new_xs, 4)

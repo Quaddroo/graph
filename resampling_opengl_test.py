@@ -2,7 +2,7 @@
 %load_ext autoreload
 %autoreload 2
 
-from resampling_opengl import resample_opengl, setup_environment, setup_pygame
+from resampling_opengl import resample_opengl, setup_environment, setup_pygame, generate_initial_data_textures, prep_data_for_texture, split_timestamps_into_f32, get_resulting_pixeldata
 from graph import LineGraphSequential
 from utils import generate_random_walk
 import numpy as np
@@ -30,10 +30,11 @@ OpenGL/Numba: {(t1-t0)/(t2-t1)}
 """)
 
 # %%
-
-import os
-os.environ["PAGER"] = "cat" # avoids it using less to page shit
-%load_ext line_profiler
-%lprun -f resample_opengl resample_opengl(data, 4)
+# 
+# import os
+# os.environ["PAGER"] = "cat" # avoids it using less to page shit
+# %load_ext line_profiler
+# %lprun -f resample_opengl resample_opengl(data, 4)
+# 
 
 # %%
