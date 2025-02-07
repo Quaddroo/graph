@@ -24,8 +24,6 @@ def combine_timestamps_into_f64(timestamps1, timestamps2):
     timestamps2 = timestamps2.astype('float64') * 100000
     return np.add(timestamps1, timestamps2)
 
-
-
 def check_texture_underlying_data(textureID, width, height):
     # Assuming `textureID` is your texture ID
     glBindTexture(GL_TEXTURE_2D, textureID)
@@ -53,17 +51,6 @@ def setup_pygame():
     # Ensure OpenGL functions are initialized
     pygame.display.set_caption('OpenGL Context with Pygame')
     return
-
-def generate_climbing_walk(steps, start_value=0, step_size=1):
-    x_values = np.arange(int(time.time()), int(time.time()) + steps)
-    y_values = np.arange(0, 0+steps)
-#     y_values = np.cumsum(np.random.choice([-step_size, step_size], size=steps)) + start_value
-    return np.column_stack((x_values, y_values))
-
-def generate_random_walk(steps, start_value=0, step_size=1):
-    x_values = np.arange(int(time.time()), int(time.time()) + steps)
-    y_values = np.cumsum(np.random.choice([-step_size, step_size], size=steps)) + start_value
-    return np.column_stack((x_values, y_values))
 
 def find_optimal_texture_size():
     """
@@ -336,98 +323,40 @@ void main() {
 
 # %%
 
+def resample_opengl(data, n_value):
+    glDisable(GL_BLEND) # Might not be necessary
 
-glDisable(GL_BLEND) # Might not be necessary
+    width, height, framebuffer = setup_environment()
 
-n_value = 4
+    x_texture_id, y_texture_id = \
+        generate_initial_data_textures(data, width, height)
 
-width, height, framebuffer = setup_environment()
+    shader_program = compile_shader_program(vertex_shader_code, fragment_shader_code)
+    # glUseProgram(shader_program) # TODO: maybe this can be done here only
 
-random_walk_data = generate_random_walk(1000000, step_size=0.5)
+    vao, vbo, vertices = create_vao_vbo()
 
-x_texture_id, y_texture_id = \
-    generate_initial_data_textures(random_walk_data, width, height)
+    bind_and_set_textures(shader_program, x_texture_id, y_texture_id, width, height)
 
-shader_program = compile_shader_program(vertex_shader_code, fragment_shader_code)
-# glUseProgram(shader_program) # TODO: maybe this can be done here only
+    prepare_environment_for_drawing(vao, vbo, framebuffer, width, height, vertices)
 
-vao, vbo, vertices = create_vao_vbo()
+    render_fullscreen_quad(vao, shader_program, n_value)
 
-bind_and_set_textures(shader_program, x_texture_id, y_texture_id, width, height)
+    cleanup_environment_after_drawing()
 
-prepare_environment_for_drawing(vao, vbo, framebuffer, width, height, vertices)
+    results_0, results_1 = get_resulting_pixeldata(framebuffer, width, height)
 
-render_fullscreen_quad(vao, shader_program, n_value)
+    new_ys = np.frombuffer(results_1, dtype=np.float32).reshape(-1, 4).reshape(-1, 1)[0:1000000]
 
-cleanup_environment_after_drawing()
+    new_xs_0 = np.frombuffer(results_0, dtype=np.float32).reshape(-1, 4)[:, 1].reshape(-1, 1)
 
-results_0, results_1 = get_resulting_pixeldata(framebuffer, width, height)
-# 
-# height = 1
-# width - len(y)
-# 
+    new_xs_1 = np.frombuffer(results_0, dtype=np.float32).reshape(-1, 4)[:, 0].reshape(-1, 1)
 
-# results = glReadPixels(0, 0, width, height, GL_RGBA32F, GL_FLOAT)
+    new_xs = combine_timestamps_into_f64(new_xs_0, new_xs_1)[0:1000000//n_value]
 
+    new_xs = np.repeat(new_xs, 4)
 
+    final_resampled_array = np.column_stack((new_xs, new_ys))
 
-new_ys = np.frombuffer(results_1, dtype=np.float32).reshape(-1, 4).reshape(-1, 1)[0:1000000]
+    return final_resampled_array
 
-new_xs_0 = np.frombuffer(results_0, dtype=np.float32).reshape(-1, 4)[:, 1].reshape(-1, 1)
-
-new_xs_1 = np.frombuffer(results_0, dtype=np.float32).reshape(-1, 4)[:, 0].reshape(-1, 1)
-
-new_xs = combine_timestamps_into_f64(new_xs_0, new_xs_1)[0:1000000//n_value]
-
-new_xs = np.repeat(new_xs, 4)
-
-final_resampled_array = np.column_stack((new_xs, new_ys))
-
-
-# %%
-final_resampled_array
-
-# %%
-
-# %%
-
-ts1, ts2 = split_timestamps_into_f32(random_walk_data[:, 0])
-combine_timestamps_into_f64(ts1, ts2)
-
-test_timestamp/1000
-np.float32(test_timestamp/1000000)
-np.float32(test_timestamp/256)
-test_timestamp/10000
-
-
-
-np.all(results == reference_results) # returns false, so there is a change
-
-
-# %%
-for i, result in enumerate(results):
-    if result[0][0] == 0.:
-        print("found it")
-        print(i)
-        print(result)
-        break
-# %%
-
-# Reshape the results
-result_array = np.frombuffer(results, dtype=np.float32).reshape(-1, 4)
-
-# Extract Separate OHLC Values
-mid_x_values = result_array[:, 0]
-open_values = result_array[:, 1]
-high_values = result_array[:, 2]
-low_values = result_array[:, 3]
-close_values = result_array[:, 3]  # Similar since stored in FragColor.w
-
-# Combine into a structured array, or use as needed
-ohlc_data = np.column_stack((mid_x_values, open_values, high_values, low_values, close_values))
-
-# Example of using OHLC data
-print("OHLC data:\n", ohlc_data)
-
-
-# %%

@@ -3,7 +3,7 @@ import pygame
 import numpy as np
 import traceback
 from numba import jit
-import _thread
+import _thread #
 # import pygame.gfxdraw
 import textwrap
 from functools import partial
@@ -12,7 +12,7 @@ import time
 import math
 from datetime import timezone
 
-import _thread
+from multiprocessing import Process, Manager, Value
 
 class GraphObject:
     global_x = 0
@@ -111,6 +111,9 @@ class GraphObject:
         raise NotImplementedError()
     def delete(self):
         raise NotImplementedError()
+
+    def prepare_for_quit():
+        pass
 
     def identify(self, x0, y0, x1, y1, x_is_date):
 #         relevant_data = self._cut_data(self.initial_data, startx = x0, starty = y0, endx = x1, endy = y1, chart_width_px=None, chart_height_px=None)
@@ -619,20 +622,38 @@ class LineGraphSequential(LineGraph):
         self.tmi_screen_width_multiplier = 4 # TODO: is this and the bottom one basically one param? think about it.
         self.cut_extra_screen_width_multiplier = 2 #must be smaller than self.tmi_screen_width_multiplier
 
-        self.cached_resamples = {} # n: uncut_resampled_data
+#         self.cached_resamples = {} # n: uncut_resampled_data
+
+        self.cached_resamples = Manager().dict()
 
         self.n_per_pixel = 1
         self.n_approximation_multiplier = None
 
         self.dont_resample = dont_resample
 
+#         self.terminating = Manager().bool()
+        self.terminating = Value('b', False)
+
         if self.dont_resample:
             self.maybe_resample_data = partial(GraphObject.maybe_resample_data, self)
         else:
-            _thread.start_new_thread(self.pre_prepare_cached_resamples, ())
+            self.preparation_process = Process(target = self.pre_prepare_cached_resamples)
+            self.preparation_process.start()
+#             _thread.start_new_thread(self.pre_prepare_cached_resamples, ())
+
+    def prepare_for_quit(self):
+        self.terminating.value = True
+        print("terminating preparation process")
+        self.preparation_process.terminate()
+        print("preparation process terminated")
+        print("joining preparation process")
+        self.preparation_process.join()
 
     def pre_prepare_cached_resamples(self):
         for data_sampling_choice in self.data_sampling_choices:
+            if self.terminating.value:
+                print("terminating pre_prepare_cached_resamples early")
+                return
             self.resample_initial_data(n = data_sampling_choice)
 
     def maybe_cut_data_creating_render(self, startx, starty, endx, endy, chart_width_px, chart_height_px):
@@ -866,7 +887,6 @@ class LineGraphSequential(LineGraph):
             
     def maybe_resample_data(self, startx, starty, endx, endy, chart_width_px, chart_height_px):
 
-#         print("maybe resampling")
         # TODO: test alternate methods (LTTB algorythm, min-max sampling, ...?)
 
         # optimal sampling is when there are as many chart x values as there are pixels on the screen.
@@ -891,10 +911,14 @@ class LineGraphSequential(LineGraph):
     def resample_initial_data(self, n):
         print(f"resampling data to {n=}")
         if n == 1:
+            print("returning initial data")
             return self.initial_data[:, 0:2]
         else:
             if n not in self.cached_resamples.keys():
+                print("doing hard calculations")
                 self.cached_resamples[n] = self.resample(self.initial_data, n)
+            else:
+                print("using cache")
             return self.cached_resamples[n]
         
     
@@ -1556,6 +1580,9 @@ class Graph:
                 self.running = False
 
 
+
+#         for chart in self.global_scene:
+#             chart.prepare_for_quit()
         pygame.quit()
 
     def _pygame_pos_to_pos(self, x, y):
