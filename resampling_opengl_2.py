@@ -26,6 +26,12 @@ def setup_pygame():
     pygame.display.set_caption('OpenGL Context with Pygame')
     return
 
+def generate_climbing_walk(steps, start_value=0, step_size=1):
+    x_values = np.arange(int(time.time()), int(time.time()) + steps)
+    y_values = np.arange(0, 0+steps)
+#     y_values = np.cumsum(np.random.choice([-step_size, step_size], size=steps)) + start_value
+    return np.column_stack((x_values, y_values))
+
 def generate_random_walk(steps, start_value=0, step_size=1):
     x_values = np.arange(int(time.time()), int(time.time()) + steps)
     y_values = np.cumsum(np.random.choice([-step_size, step_size], size=steps)) + start_value
@@ -155,29 +161,20 @@ def render_fullscreen_quad():
 # %%
 glGetError()
 
-
-# %%
-
 setup_pygame()
 
-# %%
 width, height = find_optimal_texture_size()
 
 framebuffer = set_up_floating_point_framebufer(width, height)
 
 # %%
 # Create textures for x and y
-random_walk_data = generate_random_walk(1000000, step_size=0.5)
+# random_walk_data = generate_random_walk(1000000, step_size=0.5)
+random_walk_data = generate_climbing_walk(1000000, step_size=0.5)
 x = random_walk_data[:, 0]
 y = random_walk_data[:, 1]
 n = 4  # Example group size
 y_length = len(y) 
-# Width is the number of OHLC values (4 per group)
-# width = math.ceil(y_length / n) * 4
-# height = 1
-
-
-# %%
 
 max_texture_size = glGetIntegerv(GL_MAX_TEXTURE_SIZE)
 
@@ -194,72 +191,60 @@ y_texture_id = create_texture(y_reshaped, 1)
 fragment_shader_code = """
 #version 330 core
 #extension GL_ARB_draw_buffers : enable
+precision highp float;
 
-precision highp float; // supposed to increase precision
 // Texture inputs
 uniform sampler2D x_texture;
 uniform sampler2D y_texture;
 
 // Output color
-// out vec4 FragColor;
 layout(location = 0) out vec4 FragColor0;
 layout(location = 1) out vec4 FragColor1;
 
 // Define the group size (n)
 uniform int n;
-
-// Define texture dimensions
 uniform ivec2 tex_dimensions;
 
 void main() {
-    // Calculate current fragment index
-    int index = int(gl_FragCoord.x);
+    // Current fragment index
+    int fragX = int(gl_FragCoord.x);
+    int fragY = int(gl_FragCoord.y);
 
-    // Calculate group index and starting position
-    int group = index / n;
-    int start_idx = group * n;
+    // Calculate 1D index
+    int uniqueIndex = fragY * tex_dimensions.x + fragX;
 
-    // Ensure we don't overshoot
-    if (start_idx >= tex_dimensions.x) {
-        discard; // Avoid processing out of bounds
-    }
+    // Calculate starting indices for the group
+    int start_idx = uniqueIndex * n;
+    int start_idx_x = start_idx % tex_dimensions.x;
+    int start_idx_y = start_idx / tex_dimensions.x;
 
-    // Calculate OHLC values
-    float open_val = texelFetch(y_texture, ivec2(start_idx, 0), 0).r;
+    // OHLC calculation
+    float open_val = texelFetch(y_texture, ivec2(start_idx_x, start_idx_y), 0).r;
+
+    FragColor0 = vec4(start_idx_x, start_idx_y, 9, 9);
+    FragColor1 = vec4(open_val, open_val, open_val, open_val);
+
+    return;
+
     float high_val = open_val;
     float low_val = open_val;
     float close_val;
-    
-    for (int i = 1; i < n && (start_idx + i) < tex_dimensions.x; ++i) {
-        float y_val = texelFetch(y_texture, ivec2(start_idx + i, 0), 0).r;
+
+    for (int i = 1; i < n && (start_idx_x + i) < tex_dimensions.x; ++i) {
+        float y_val = texelFetch(y_texture, ivec2(start_idx_x + i, start_idx_y), 0).r;
         high_val = max(high_val, y_val);
         low_val = min(low_val, y_val);
     }
-    close_val = texelFetch(y_texture, ivec2(min(start_idx + n - 1, tex_dimensions.x - 1), 0), 0).r;
+
+    close_val = texelFetch(y_texture, ivec2(min(start_idx_x + n - 1, tex_dimensions.x - 1), start_idx_y), 0).r;
 
     // Midpoint index for x
-    int mid_index = start_idx + n / 2;
-    float mid_x = texelFetch(x_texture, ivec2(mid_index, 0), 0).r;
+    int mid_index_x = start_idx_x + n / 2;
+    float mid_x = texelFetch(x_texture, ivec2(mid_index_x, start_idx_y), 0).r;
 
-    // Output OHLC as a color/vector
-    FragColor0 = vec4(0.9, 0.9, 0.9, 0.9);
-    FragColor1 = vec4(0.1, 0.1, 0.1, 0.1);
-    return;
-    if (index % 4 == 0) {
-        // FragColor = vec4(0.1, 0.1, 0.1, 0.1);
-        FragColor1 = vec4(mid_x, open_val, 0.0, 1.0);
-    } else if (index % 4 == 1) {
-        // FragColor = vec4(0.1, 0.1, 0.1, 0.1);
-        FragColor1 = vec4(mid_x, high_val, 0.0, 1.0);
-    } else if (index % 4 == 2) {
-        // FragColor = vec4(0.2, 0.2, 0.2, 0.2);
-        FragColor1 = vec4(mid_x, low_val, 0.0, 1.0);
-    } else {
-        // FragColor = vec4(3, 3, 3, 3);
-        FragColor1 = vec4(mid_x, close_val, 0.0, 1.0);
-    }
+    FragColor0 = vec4(mid_x, 0.0, 0.0, 0.0);
+    FragColor1 = vec4(open_val, high_val, low_val, close_val);
 }
-
 """
 
 vertex_shader_code = """
