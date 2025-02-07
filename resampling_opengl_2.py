@@ -26,23 +26,44 @@ def setup_pygame():
     pygame.display.set_caption('OpenGL Context with Pygame')
     return
 
-# %%
 def generate_random_walk(steps, start_value=0, step_size=1):
     x_values = np.arange(int(time.time()), int(time.time()) + steps)
     y_values = np.cumsum(np.random.choice([-step_size, step_size], size=steps)) + start_value
     return np.column_stack((x_values, y_values))
 
-# %%
+def find_optimal_texture_size():
+    """
+    It is sad, but this is the only robust approach.
+    However, because of stability issues, I'm going to have to assume a fixed available texture size for now.
+    """
+    return 1000, 1000 # width, height
+    max_texture_side_size = glGetIntegerv(GL_MAX_TEXTURE_SIZE)
+    try:
+        for i in range(100):
+            width = max_texture_side_size
+            height = 100*(i+1)
 
-def set_up_floating_point_framebufer():
+            framebuffer = glGenFramebuffers(1)
+            glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
+
+            texture = glGenTextures(1)
+            glBindTexture(GL_TEXTURE_2D, texture)
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, None)
+    except GLError as err:
+        import pdb
+        pdb.set_trace()
+
+
+def set_up_floating_point_framebufer(width, height):
     """
         This is necessary so the output colors are not rounded to 256 values, for higher precision (f32)
     """
 
     max_texture_size = glGetIntegerv(GL_MAX_TEXTURE_SIZE)
-    width = max_texture_size
+#     width = max_texture_size
 #     height = max_texture_size
-    height = 1
+#     height = 1
+#     height = 100
 #     height = 1 # can this be more? probably not?
 #     height = 2 # can this be more? probably not?
 
@@ -84,7 +105,9 @@ def create_texture(data, texture_unit):
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
     
     # Create texture
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, len(data), 1, 0, GL_RED, GL_FLOAT, data)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, data.shape[0], data.shape[1], 0, GL_RED, GL_FLOAT, data)
+
+#     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, None)
     
     return texture_id
 
@@ -141,29 +164,32 @@ glGetError()
 setup_pygame()
 
 # %%
-framebuffer = set_up_floating_point_framebufer()
+width, height = find_optimal_texture_size()
+
+framebuffer = set_up_floating_point_framebufer(width, height)
 
 # %%
 # Create textures for x and y
-random_walk_data = generate_random_walk(10000000, step_size=0.5)
+random_walk_data = generate_random_walk(1000000, step_size=0.5)
 x = random_walk_data[:, 0]
 y = random_walk_data[:, 1]
 n = 4  # Example group size
 y_length = len(y) 
 # Width is the number of OHLC values (4 per group)
-width = math.ceil(y_length / n) * 4
-height = 1
+# width = math.ceil(y_length / n) * 4
+# height = 1
 
 
 # %%
 
 max_texture_size = glGetIntegerv(GL_MAX_TEXTURE_SIZE)
 
+x_reshaped = x.reshape(width, height)
+y_reshaped = y.reshape(width, height)
 
-x_texture_id = create_texture(x[0:max_texture_size], 0)
+x_texture_id = create_texture(x_reshaped, 0)
 
-
-y_texture_id = create_texture(y[0:max_texture_size], 1)
+y_texture_id = create_texture(y_reshaped, 1)
 
 
 # %%
