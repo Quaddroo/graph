@@ -2,7 +2,7 @@
 %load_ext autoreload
 %autoreload 2
 
-from resampling_opengl_2 import resample_opengl, setup_environment, setup_pygame
+from resampling_opengl import resample_opengl, setup_environment, setup_pygame
 from graph import LineGraphSequential
 from utils import generate_random_walk
 import numpy as np
