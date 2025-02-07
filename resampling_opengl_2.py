@@ -120,7 +120,7 @@ def compile_shader_program(vertex_source, fragment_source):
     program = compileProgram(vertex_shader, fragment_shader)
     return program
 
-def bind_and_set_textures(shader_program, x_texture_id, y_texture_id):
+def bind_and_set_textures(shader_program, x_texture_id, y_texture_id, width, height):
     # Use the shader program
     glUseProgram(shader_program)
 
@@ -137,11 +137,12 @@ def bind_and_set_textures(shader_program, x_texture_id, y_texture_id):
     glUniform1i(glGetUniformLocation(shader_program, "y_texture"), 1)
 
     # Example: setting other uniforms, like the texture dimensions and n (group size)
-    tex_dimensions = (len(x), 1)  # Assuming 1D texture with width equal to the length of x
+#     tex_dimensions = (len(x), 1)  # Assuming 1D texture with width equal to the length of x
+    tex_dimensions = (width, height)
     glUniform2iv(glGetUniformLocation(shader_program, "tex_dimensions"), 1, tex_dimensions)
     glUniform1i(glGetUniformLocation(shader_program, "n"), 4)  # Adjust 'n' as needed
 
-def render_fullscreen_quad():
+def render_fullscreen_quad(vao, shader_program, n_value):
     # Bind VAO
     glBindVertexArray(vao)
 
@@ -158,35 +159,76 @@ def render_fullscreen_quad():
     # Unbind VAO for cleanliness
     glBindVertexArray(0)
 
-# %%
-glGetError()
+def setup_environment():
+    glGetError()
 
-setup_pygame()
+    setup_pygame()
 
-width, height = find_optimal_texture_size()
+    width, height = find_optimal_texture_size()
 
-framebuffer = set_up_floating_point_framebufer(width, height)
+    framebuffer = set_up_floating_point_framebufer(width, height)
 
-# %%
-# Create textures for x and y
-# random_walk_data = generate_random_walk(1000000, step_size=0.5)
-random_walk_data = generate_climbing_walk(1000000, step_size=0.5)
-x = random_walk_data[:, 0]
-y = random_walk_data[:, 1]
-n = 4  # Example group size
-y_length = len(y) 
+    return width, height, framebuffer
 
-max_texture_size = glGetIntegerv(GL_MAX_TEXTURE_SIZE)
+def create_vao_vbo():
+    # Vertex coordinates for a fullscreen quad
+    vertices = np.array([
+        -1.0, -1.0,  # Bottom-left
+         1.0, -1.0,  # Bottom-right
+        -1.0,  1.0,  # Top-left
+         1.0,  1.0   # Top-right
+    ], dtype=np.float32)
 
-x_reshaped = x.reshape(width, height)
-y_reshaped = y.reshape(width, height)
+    # Create VAO and VBO
+    vao = glGenVertexArrays(1)
+    vbo = glGenBuffers(1)
 
-x_texture_id = create_texture(x_reshaped, 0)
+    return vao, vbo, vertices
 
-y_texture_id = create_texture(y_reshaped, 1)
+def generate_initial_data_textures(random_walk_data, width, height):
+    x = random_walk_data[:, 0]
+    y = random_walk_data[:, 1]
+    y_length = len(y) 
 
+    x_reshaped = x.reshape(width, height)
+    y_reshaped = y.reshape(width, height)
 
-# %%
+    x_texture_id = create_texture(x_reshaped, 0)
+
+    y_texture_id = create_texture(y_reshaped, 1)
+
+    return x_texture_id, y_texture_id
+
+def prepare_environment_for_drawing(vao, vbo, framebuffer, width, height, vertices):
+    glBindVertexArray(vao)
+    glBindBuffer(GL_ARRAY_BUFFER, vbo)
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
+    glViewport(0, 0, width, height)
+
+    glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL_STATIC_DRAW)
+
+    # Enable vertex attribute (position)
+    glEnableVertexAttribArray(0)
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, None)
+
+def cleanup_environment_after_drawing():
+    # Unbind for cleanliness; they should be bound when rendering
+    glBindBuffer(GL_ARRAY_BUFFER, 0)
+    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+    glBindVertexArray(0)
+
+def get_resulting_pixeldata(framebuffer, width, height):
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
+
+    glReadBuffer(GL_COLOR_ATTACHMENT0)
+    results_0 = glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT)
+
+    glReadBuffer(GL_COLOR_ATTACHMENT1)
+    results_1 = glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT)
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+
+    return results_0, results_1
 
 fragment_shader_code = """
 #version 330 core
@@ -257,75 +299,35 @@ void main() {
 }
 """
 
-
-
 # %%
+n_value = 4
 
-reference_results = glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT)
+width, height, framebuffer = setup_environment()
 
-# %%
+random_walk_data = generate_climbing_walk(1000000, step_size=0.5)
+
+x_texture_id, y_texture_id = \
+    generate_initial_data_textures(random_walk_data, width, height)
 
 shader_program = compile_shader_program(vertex_shader_code, fragment_shader_code)
 # glUseProgram(shader_program) # TODO: maybe this can be done here only
 
-# %%
+vao, vbo, vertices = create_vao_vbo()
 
-# Vertex coordinates for a fullscreen quad
-vertices = np.array([
-    -1.0, -1.0,  # Bottom-left
-     1.0, -1.0,  # Bottom-right
-    -1.0,  1.0,  # Top-left
-     1.0,  1.0   # Top-right
-], dtype=np.float32)
+bind_and_set_textures(shader_program, x_texture_id, y_texture_id, width, height)
 
-# Create VAO and VBO
-vao = glGenVertexArrays(1)
-vbo = glGenBuffers(1)
+prepare_environment_for_drawing(vao, vbo, framebuffer, width, height, vertices)
 
-# %%
-bind_and_set_textures(shader_program, x_texture_id, y_texture_id)
+render_fullscreen_quad(vao, shader_program, n_value)
 
-# %%
-glBindVertexArray(vao)
-glBindBuffer(GL_ARRAY_BUFFER, vbo)
-glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
-glViewport(0, 0, width, height)
+cleanup_environment_after_drawing()
 
-# %%
-glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL_STATIC_DRAW)
-
-# %%
-
-# Enable vertex attribute (position)
-glEnableVertexAttribArray(0)
-glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, None)
-
-
-
-render_fullscreen_quad()
-
-
-# Unbind for cleanliness; they should be bound when rendering
-glBindBuffer(GL_ARRAY_BUFFER, 0)
-glBindFramebuffer(GL_FRAMEBUFFER, 0)
-glBindVertexArray(0)
-
+results_0, results_1 = get_resulting_pixeldata(framebuffer, width, height)
 # %%
 # 
 # height = 1
 # width - len(y)
 # 
-
-
-glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
-
-glReadBuffer(GL_COLOR_ATTACHMENT0)
-results_0 = glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT)
-
-glReadBuffer(GL_COLOR_ATTACHMENT1)
-results_1 = glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT)
-
-glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
 # results = glReadPixels(0, 0, width, height, GL_RGBA32F, GL_FLOAT)
 
