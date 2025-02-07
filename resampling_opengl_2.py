@@ -10,6 +10,34 @@ from OpenGL.GL.framebufferobjects import *
 import time
 
 # %%
+def split_timestamps_into_f32(timestamps):
+#     test_timestamps = random_walk_data[:, 0][0:5]/100000
+    divided_timestamps = timestamps/100000
+    m = np.modf(divided_timestamps)
+    r1 = m[0].astype('float32')
+    r2 = m[1].astype('float32')
+    return r1, r2
+
+
+def combine_timestamps_into_f64(timestamps1, timestamps2):
+    timestamps1 = timestamps1.astype('float64') * 100000
+    timestamps2 = timestamps2.astype('float64') * 100000
+    return np.add(timestamps1, timestamps2)
+
+
+
+def check_texture_underlying_data(textureID, width, height):
+    # Assuming `textureID` is your texture ID
+    glBindTexture(GL_TEXTURE_2D, textureID)
+
+    # Prepare an array to store the pixel data
+    data = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT)
+
+    # Convert to a numpy array (assuming your texture uses GL_FLOAT for red channel)
+#     pixel_data = np.frombuffer(data, dtype=np.float32).reshape((height, width))
+
+    return data
+
 def setup_pygame():
     # This is done to set the opengl context.
     pygame.init()
@@ -81,15 +109,24 @@ def set_up_floating_point_framebufer(width, height):
         raise Exception("Framebuffer is not complete")
     return framebuffer
 
-def create_texture(data, texture_unit, fallback_width=None, fallback_height=None):
+def prep_data_for_texture(data):
     # Convert data to float32 for texture compatibility
+    data = np.array(data, dtype=np.float32)
+    data = np.stack([data, np.zeros_like(data), np.zeros_like(data), np.zeros_like(data)], axis=-1)
+    return data
+
+def prep_timestamps_for_texture(data):
+    t1, t2 = split_timestamps_into_f32(data)    
+    data = np.stack([t1, t2, np.zeros_like(data), np.zeros_like(data)], axis=-1)
+    return data
+
+def create_texture(data, texture_unit, fallback_width=None, fallback_height=None):
     if data is None:
         if not fallback_width or not fallback_height:
             raise Exception("No data provided to create_texture means it needs fallback_width or fallback_height")
         width = fallback_width
         height = fallback_height
     else:
-        data = np.array(data, dtype=np.float32)
         width = data.shape[0]
         height = data.shape[1]
 
@@ -190,8 +227,10 @@ def generate_initial_data_textures(random_walk_data, width, height):
     y = random_walk_data[:, 1]
     y_length = len(y) 
 
-    x_reshaped = x.reshape(width, height)
-    y_reshaped = y.reshape(width, height)
+    x = prep_timestamps_for_texture(x)
+    y = prep_data_for_texture(y)
+    x_reshaped = x.reshape(width, height, 4)
+    y_reshaped = y.reshape(width, height, 4)
 
     x_texture_id = create_texture(x_reshaped, 0)
 
@@ -263,11 +302,6 @@ void main() {
     // OHLC calculation
     float open_val = texelFetch(y_texture, ivec2(start_idx_x, start_idx_y), 0).r;
 
-    FragColor0 = vec4(start_idx_x, start_idx_y, 9, 9);
-    FragColor1 = vec4(open_val, open_val, open_val, open_val);
-
-    return;
-
     float high_val = open_val;
     float low_val = open_val;
     float close_val;
@@ -282,9 +316,10 @@ void main() {
 
     // Midpoint index for x
     int mid_index_x = start_idx_x + n / 2;
-    float mid_x = texelFetch(x_texture, ivec2(mid_index_x, start_idx_y), 0).r;
+    float mid_x_0 = texelFetch(x_texture, ivec2(mid_index_x, start_idx_y), 0).r;
+    float mid_x_1 = texelFetch(x_texture, ivec2(mid_index_x, start_idx_y), 0).g;
 
-    FragColor0 = vec4(mid_x, 0.0, 0.0, 0.0);
+    FragColor0 = vec4(mid_x_0, mid_x_1, 0.0, 0.0);
     FragColor1 = vec4(open_val, high_val, low_val, close_val);
 }
 """
@@ -300,11 +335,13 @@ void main() {
 """
 
 # %%
+glDisable(GL_BLEND) # Might not be necessary
+
 n_value = 4
 
 width, height, framebuffer = setup_environment()
 
-random_walk_data = generate_climbing_walk(1000000, step_size=0.5)
+random_walk_data = generate_random_walk(1000000, step_size=0.5)
 
 x_texture_id, y_texture_id = \
     generate_initial_data_textures(random_walk_data, width, height)
@@ -333,6 +370,16 @@ results_0, results_1 = get_resulting_pixeldata(framebuffer, width, height)
 
 
 # %%
+
+ts1, ts2 = split_timestamps_into_f32(random_walk_data[:, 0])
+combine_timestamps_into_f64(ts1, ts2)
+
+test_timestamp/1000
+np.float32(test_timestamp/1000000)
+np.float32(test_timestamp/256)
+test_timestamp/10000
+
+
 
 np.all(results == reference_results) # returns false, so there is a change
 
