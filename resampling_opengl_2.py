@@ -335,6 +335,8 @@ void main() {
 """
 
 # %%
+
+
 glDisable(GL_BLEND) # Might not be necessary
 
 n_value = 4
@@ -360,7 +362,6 @@ render_fullscreen_quad(vao, shader_program, n_value)
 cleanup_environment_after_drawing()
 
 results_0, results_1 = get_resulting_pixeldata(framebuffer, width, height)
-# %%
 # 
 # height = 1
 # width - len(y)
@@ -368,6 +369,25 @@ results_0, results_1 = get_resulting_pixeldata(framebuffer, width, height)
 
 # results = glReadPixels(0, 0, width, height, GL_RGBA32F, GL_FLOAT)
 
+
+
+new_ys = np.frombuffer(results_1, dtype=np.float32).reshape(-1, 4).reshape(-1, 1)[0:1000000]
+
+new_xs_0 = np.frombuffer(results_0, dtype=np.float32).reshape(-1, 4)[:, 1].reshape(-1, 1)
+
+new_xs_1 = np.frombuffer(results_0, dtype=np.float32).reshape(-1, 4)[:, 0].reshape(-1, 1)
+
+new_xs = combine_timestamps_into_f64(new_xs_0, new_xs_1)[0:1000000//n_value]
+
+new_xs = np.repeat(new_xs, 4)
+
+final_resampled_array = np.column_stack((new_xs, new_ys))
+
+
+# %%
+final_resampled_array
+
+# %%
 
 # %%
 
