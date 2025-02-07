@@ -59,37 +59,33 @@ def set_up_floating_point_framebufer(width, height):
         This is necessary so the output colors are not rounded to 256 values, for higher precision (f32)
     """
 
-    max_texture_size = glGetIntegerv(GL_MAX_TEXTURE_SIZE)
-#     width = max_texture_size
-#     height = max_texture_size
-#     height = 1
-#     height = 100
-#     height = 1 # can this be more? probably not?
-#     height = 2 # can this be more? probably not?
+    texture0 = create_texture(None, texture_unit=3, fallback_width=width, fallback_height=height)
+    texture1 = create_texture(None, texture_unit=4, fallback_width=width, fallback_height=height) # not sure what texture unit is
 
     framebuffer = glGenFramebuffers(1)
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
 
-    texture = glGenTextures(1)
-    glBindTexture(GL_TEXTURE_2D, texture)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, None)
-
-    # Set texture parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0)
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture0, 0)
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, texture1, 0)
+    draw_buffers = (GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1)
+    glDrawBuffers(2, draw_buffers)
 
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
     if status != GL_FRAMEBUFFER_COMPLETE:
         raise Exception("Framebuffer is not complete")
     return framebuffer
 
-def create_texture(data, texture_unit):
+def create_texture(data, texture_unit, fallback_width=None, fallback_height=None):
     # Convert data to float32 for texture compatibility
-    data = np.array(data, dtype=np.float32)
+    if data is None:
+        if not fallback_width or not fallback_height:
+            raise Exception("No data provided to create_texture means it needs fallback_width or fallback_height")
+        width = fallback_width
+        height = fallback_height
+    else:
+        data = np.array(data, dtype=np.float32)
+        width = data.shape[0]
+        height = data.shape[1]
 
     # Generate texture ID
     texture_id = glGenTextures(1)
@@ -105,7 +101,8 @@ def create_texture(data, texture_unit):
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
     
     # Create texture
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, data.shape[0], data.shape[1], 0, GL_RED, GL_FLOAT, data)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, data)
+#     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, data)
 
 #     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, None)
     
@@ -196,6 +193,7 @@ y_texture_id = create_texture(y_reshaped, 1)
 
 fragment_shader_code = """
 #version 330 core
+#extension GL_ARB_draw_buffers : enable
 
 precision highp float; // supposed to increase precision
 // Texture inputs
@@ -203,7 +201,9 @@ uniform sampler2D x_texture;
 uniform sampler2D y_texture;
 
 // Output color
-out vec4 FragColor;
+// out vec4 FragColor;
+layout(location = 0) out vec4 FragColor0;
+layout(location = 1) out vec4 FragColor1;
 
 // Define the group size (n)
 uniform int n;
@@ -242,18 +242,21 @@ void main() {
     float mid_x = texelFetch(x_texture, ivec2(mid_index, 0), 0).r;
 
     // Output OHLC as a color/vector
+    FragColor0 = vec4(0.9, 0.9, 0.9, 0.9);
+    FragColor1 = vec4(0.1, 0.1, 0.1, 0.1);
+    return;
     if (index % 4 == 0) {
-        FragColor = vec4(0.1, 0.1, 0.1, 0.1);
-        // FragColor = vec4(mid_x, open_val, 0.0, 1.0);
+        // FragColor = vec4(0.1, 0.1, 0.1, 0.1);
+        FragColor1 = vec4(mid_x, open_val, 0.0, 1.0);
     } else if (index % 4 == 1) {
-        FragColor = vec4(0.1, 0.1, 0.1, 0.1);
-        // FragColor = vec4(mid_x, high_val, 0.0, 1.0);
+        // FragColor = vec4(0.1, 0.1, 0.1, 0.1);
+        FragColor1 = vec4(mid_x, high_val, 0.0, 1.0);
     } else if (index % 4 == 2) {
-        FragColor = vec4(0.2, 0.2, 0.2, 0.2);
-        // FragColor = vec4(mid_x, low_val, 0.0, 1.0);
+        // FragColor = vec4(0.2, 0.2, 0.2, 0.2);
+        FragColor1 = vec4(mid_x, low_val, 0.0, 1.0);
     } else {
-        FragColor = vec4(3, 3, 3, 3);
-        // FragColor = vec4(mid_x, close_val, 0.0, 1.0);
+        // FragColor = vec4(3, 3, 3, 3);
+        FragColor1 = vec4(mid_x, close_val, 0.0, 1.0);
     }
 }
 
@@ -330,7 +333,13 @@ glBindVertexArray(0)
 
 
 glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
-results = glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT)
+
+glReadBuffer(GL_COLOR_ATTACHMENT0)
+results_0 = glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT)
+
+glReadBuffer(GL_COLOR_ATTACHMENT1)
+results_1 = glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT)
+
 glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
 # results = glReadPixels(0, 0, width, height, GL_RGBA32F, GL_FLOAT)
