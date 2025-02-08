@@ -1581,8 +1581,8 @@ class Graph:
 
 
 
-#         for chart in self.global_scene:
-#             chart.prepare_for_quit()
+        for chart in self.global_scene:
+            chart.prepare_for_quit()
         pygame.quit()
 
     def _pygame_pos_to_pos(self, x, y):
