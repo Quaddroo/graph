@@ -9,26 +9,26 @@ import numpy as np
 from time import perf_counter_ns
 
 # %%
-data = generate_random_walk(1000000, step_size=0.5)
-resampling_n = 5
+for resampling_n in range(4, 10):
+    data = generate_random_walk(1000000, step_size=0.5)
 
-setup_pygame() # This sets up an opengl environment. Since it must occur no matter what when launching Graph, it is unfair to include in the performance.
+    setup_pygame() # This sets up an opengl environment. Since it must occur no matter what when launching Graph, it is unfair to include in the performance.
 
-t0 = perf_counter_ns()
-resample_1 = resample_opengl(data, resampling_n)
-t1 = perf_counter_ns()
-resample_2 = LineGraphSequential.resample(None, data, resampling_n)
-t2 = perf_counter_ns()
+    t0 = perf_counter_ns()
+    resample_1 = resample_opengl(data, resampling_n)
+    t1 = perf_counter_ns()
+    resample_2 = LineGraphSequential.resample(None, data, resampling_n)
+    t2 = perf_counter_ns()
 
-assert np.all(resample_1[:, 1] == resample_2[:, 1])
-# the timestamps have rounding issues, I consider this a sufficient test, but ideally should test those also eventually.
+    assert np.all(resample_1[:, 1] == resample_2[:, 1])
+    # the timestamps have rounding issues, I consider this a sufficient test, but ideally should test those also eventually.
 
-print(f"""
-Test passed. 
-OpenGL resample time: {t1 - t0} ns
-Numba + np resample time: {t2 - t1} ns
-OpenGL/Numba: {(t1-t0)/(t2-t1)}
-""")
+    print(f"""
+    Test passed for {resampling_n} n.
+    OpenGL resample time: {t1 - t0} ns
+    Numba + np resample time: {t2 - t1} ns
+    OpenGL/Numba: {(t1-t0)/(t2-t1)}
+    """)
 # 
 # # %%
 # # 
@@ -38,4 +38,19 @@ OpenGL/Numba: {(t1-t0)/(t2-t1)}
 # %lprun -f resample_opengl resample_opengl(data, 4)
 # # 
 # 
-# %%
+def debug_shit():
+    diff_index = np.argmin(resample_1[:, 1] == resample_2[:, 1])
+    print(diff_index)
+    group = diff_index // 4
+    group_index = group * 4
+
+    # %%
+    (resample_1[:, 1] == resample_2[:, 1])[group_index:group_index + 4]
+
+    # %%
+    resample_1[:, 1][group_index:group_index+4] # group number 166
+    # %%
+    resample_2[:, 1][group_index:group_index+4] # group number 166
+    # %%
+    data[:, 1][group*resampling_n:group*resampling_n+resampling_n] # each group is 6 elements long
+

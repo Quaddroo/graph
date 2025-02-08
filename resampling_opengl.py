@@ -292,13 +292,23 @@ void main() {
     float low_val = open_val;
     float close_val;
 
-    for (int i = 1; i < n && (start_idx_x + i) < tex_dimensions.x; ++i) {
-        float y_val = texelFetch(y_texture, ivec2(start_idx_x + i, start_idx_y), 0).r;
+    for (int i = 0; i < n; ++i) {
+        // Calculate x and y indices with wrapping
+        int current_idx_x = (start_idx_x + i) % tex_dimensions.x;
+        int current_idx_y = start_idx_y + (start_idx_x + i) / tex_dimensions.x;
+
+         if (current_idx_y >= tex_dimensions.y) {
+            break; // Stop processing if we're beyond the texture height
+        }       
+        // Fetch the y value
+        float y_val = texelFetch(y_texture, ivec2(current_idx_x, current_idx_y), 0).r;
+
         high_val = max(high_val, y_val);
         low_val = min(low_val, y_val);
+        close_val = y_val; // this will be overwritten every loop till its right
     }
 
-    close_val = texelFetch(y_texture, ivec2(min(start_idx_x + n - 1, tex_dimensions.x - 1), start_idx_y), 0).r;
+    // close_val = texelFetch(y_texture, ivec2((start_idx_x + n - 1) % tex_dimensions.x, start_idx_y + (start_idx_x + n - 1) / tex_dimensions.x), 0).r;
 
     // Midpoint index for x
     int mid_index_x = start_idx_x + n / 2;
@@ -390,7 +400,7 @@ def resample_opengl_1M(data, n_value):
     # 24.8% of time is spent in this call
     results_0, results_1 = get_resulting_pixeldata(framebuffer, width, height)
 
-    expected_group_count = len(data) // n_value
+    expected_group_count = math.ceil(len(data) / n_value)
     expected_output_len = expected_group_count * 4 # O H L C
 
     new_ys = np.frombuffer(results_1, dtype=np.float32).reshape(-1, 4).reshape(-1, 1)[0:expected_output_len]
