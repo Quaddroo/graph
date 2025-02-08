@@ -31,7 +31,8 @@ def setup_glfw():
 def split_timestamps_into_f32(timestamps):
     divided_timestamps = timestamps/100000
     r1, r2 = np.modf(divided_timestamps)
-    return r1.astype('float32'), r2.astype('float32')
+#     return r1.astype('float32'), r2.astype('float32')
+    return r1, r2 # as it turns out, it works regardless.
 
 def combine_timestamps_into_f64(timestamps1, timestamps2):
     timestamps1 = timestamps1.astype('float64') * 100000
