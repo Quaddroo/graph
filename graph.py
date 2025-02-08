@@ -638,6 +638,8 @@ class LineGraphSequential(LineGraph):
 #         self.terminating = Manager().bool()
         self.terminating = Value('b', False)
 
+        self.have_set_up_glfw = False
+
         if self.dont_resample:
             self.maybe_resample_data = partial(GraphObject.maybe_resample_data, self)
         else:
@@ -908,6 +910,11 @@ class LineGraphSequential(LineGraph):
         else:
             return False
 
+    def setup_glfw_once(self):
+        if not self.have_set_up_glfw:
+            setup_glfw()
+        self.have_set_up_glfw = True
+
     @staticmethod
     def find_closest_number_to(number, numbers):
         return min(numbers, key=lambda x:abs(x-number))
@@ -920,8 +927,8 @@ class LineGraphSequential(LineGraph):
         else:
             if n not in self.cached_resamples.keys():
                 print("doing hard calculations")
-                if n < 25: #OpenGL is faster in these cases.
-                    setup_glfw()
+                if n <= 60: # OpenGL is faster in these cases.
+                    self.setup_glfw_once()
                     self.cached_resamples[n] = resample_opengl(self.initial_data, n)
                 else:
                     self.cached_resamples[n] = self.resample(self.initial_data, n)

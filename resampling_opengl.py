@@ -28,11 +28,24 @@ def setup_glfw():
     
     return window
 
+# @njit << useless, spends more time compiling than it saves.
 def split_timestamps_into_f32(timestamps):
     divided_timestamps = timestamps/100000
-    r1, r2 = np.modf(divided_timestamps)
+#     r1, r2 = np.modf(divided_timestamps)
+    r2 = np.floor(divided_timestamps) #.astype(np.float32)
+    r1 = divided_timestamps - r2
 #     return r1.astype('float32'), r2.astype('float32')
     return r1, r2 # as it turns out, it works regardless.
+
+# @njit << useless, spends more time compiling than it saves.
+def split_timestamps_into_f32_old(timestamps):
+    divided_timestamps = timestamps/100000
+    r1, r2 = np.modf(divided_timestamps)
+#     r2 = np.floor(divided_timestamps) #.astype(np.float32)
+#     r1 = divided_timestamps - r2
+#     return r1.astype('float32'), r2.astype('float32')
+    return r1, r2 # as it turns out, it works regardless.
+
 
 def combine_timestamps_into_f64(timestamps1, timestamps2):
     timestamps1 = timestamps1.astype('float64') * 100000
