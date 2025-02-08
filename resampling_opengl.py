@@ -335,16 +335,18 @@ void main() {
 def resample_opengl(data, n_value, batch_size=1000000):
     batch_start = 0
     unreliable_OHLC_size = batch_size % n_value # The last OHLC in a batch is this size and calculated without full data.
+    have_unreliable_OHLC = bool(unreliable_OHLC_size)
     resampled_batches = []
     resampled_batch = ['delete this']
-    import pdb
-    pdb.set_trace()
+#     import pdb
+#     pdb.set_trace()
 
     while batch_start < len(data):
-        if unreliable_OHLC_size == 0:
-            resampled_batches.append(resampled_batch)
+        if have_unreliable_OHLC:
+            resampled_batches.append(resampled_batch[0:-4])
         else:
-            resampled_batches.append(resampled_batch[0:-1*unreliable_OHLC_size])
+            resampled_batches.append(resampled_batch)
+
         batch_end = batch_start + batch_size
         relevant_data = data[batch_start:batch_end]
         output_batch_size = math.ceil(len(relevant_data) / n_value) * 4
