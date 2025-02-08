@@ -9,35 +9,46 @@ import numpy as np
 from time import perf_counter_ns
 
 # %%
-for resampling_n in range(4, 11):
-#     resampling_n = 5
-    passed = "passed"
-    data = generate_random_walk(10000000, step_size=0.5)
 
-    setup_pygame() # This sets up an opengl environment. Since it must occur no matter what when launching Graph, it is unfair to include in the performance.
+setup_pygame() # This sets up an opengl environment. Since it must occur no matter what when launching Graph, it is unfair to include in the performance comparison.
 
-    t0 = perf_counter_ns()
-    resample_1 = resample_opengl(data, resampling_n)
-    t1 = perf_counter_ns()
-    resample_2 = LineGraphSequential.resample(None, data, resampling_n)
-    t2 = perf_counter_ns()
+resampling_ns = range(4, 11)
+data_amounts = (543643, 1000000, 10000000)
+total_num_tests = len(resampling_ns) * len(data_amounts)
+num_passes = 0
+num_fails = 0
+for resampling_n in resampling_ns:
+    for data_amount in data_amounts:
+        passed = "passed"
+        data = generate_random_walk(data_amount, step_size=0.5)
 
-    try:
-        assert np.all(resample_1[:, 1] == resample_2[:, 1])
-    except Exception as e:
-        print("failed")
-        print(e)
-        passed = "FAILED"
-    # the timestamps have rounding issues, I consider this a sufficient test, but ideally should test those also eventually.
+        t0 = perf_counter_ns()
+        resample_1 = resample_opengl(data, resampling_n)
+        t1 = perf_counter_ns()
+        resample_2 = LineGraphSequential.resample(None, data, resampling_n)
+        t2 = perf_counter_ns()
 
-    print(f"""
-    Test {passed} for {resampling_n} n.
-    OpenGL resample time: {t1 - t0} ns
-    Numba + np resample time: {t2 - t1} ns
-    OpenGL/Numba: {(t1-t0)/(t2-t1)}
-    """)
+        try:
+            assert np.all(resample_1[:, 1] == resample_2[:, 1])
+            num_passes += 1
+        except Exception as e:
+            print("failed")
+            print(e)
+            passed = "FAILED"
+            num_fails += 1
+        # the timestamps have rounding issues, I consider this a sufficient test, but ideally should test those also eventually.
+
+        print(f"""
+        Test {passed} for {resampling_n} n.
+        Data amount: {data_amount}
+        OpenGL resample time: {t1 - t0} ns
+        Numba + np resample time: {t2 - t1} ns
+        OpenGL/Numba: {(t1-t0)/(t2-t1)}
+
+        total: {num_passes}p {num_fails}f / {total_num_tests}
+        """)
 # 
-# # %%
+# %%
 # # 
 # import os
 # os.environ["PAGER"] = "cat" # avoids it using less to page shit
@@ -62,16 +73,4 @@ def debug_shit():
     data[:, 1][group*resampling_n:group*resampling_n+resampling_n] # each group is 6 elements long
 
 
-[len(r) for r in resampled_batches]
-
-
-# %%
-resampling_n = 6
-data = generate_random_walk(10000000, step_size=0.5)
-
-t0 = perf_counter_ns()
-resample_1 = resample_opengl(data, resampling_n)
-t1 = perf_counter_ns()
-resample_2 = LineGraphSequential.resample(None, data, resampling_n)
-t2 = perf_counter_ns()
-# %%
+    sum([len(r) for r in resampled_batches])
