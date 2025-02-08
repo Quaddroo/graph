@@ -629,6 +629,7 @@ class LineGraphSequential(LineGraph):
 #         self.cached_resamples = {} # n: uncut_resampled_data
 
         self.cached_resamples = Manager().dict()
+        # TODO: replace ^^ after all are loaded with a regular dict, as accessing this lags a bit.
 
         self.n_per_pixel = 1
         self.n_approximation_multiplier = None

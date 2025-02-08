@@ -337,6 +337,9 @@ void main() {
     float low_val = open_val;
     float close_val;
 
+    float mid_x_0;
+    float mid_x_1;
+
     for (int i = 0; i < n; ++i) {
         // Calculate x and y indices with wrapping
         int current_idx_x = (start_idx_x + i) % tex_dimensions.x;
@@ -345,6 +348,7 @@ void main() {
          if (current_idx_y >= tex_dimensions.y) {
             break; // Stop processing if we're beyond the texture height
         }       
+
         // Fetch the y value
         float y_val = texelFetch(y_texture, ivec2(current_idx_x, current_idx_y), 0).r;
 
@@ -353,12 +357,13 @@ void main() {
         close_val = y_val; // this will be overwritten every loop till its right
     }
 
-    // close_val = texelFetch(y_texture, ivec2((start_idx_x + n - 1) % tex_dimensions.x, start_idx_y + (start_idx_x + n - 1) / tex_dimensions.x), 0).r;
+    int mid_n = n/2;
+    int mid_idx_x = (start_idx_x + mid_n) % tex_dimensions.x;
+    int mid_idx_y = start_idx_y + (start_idx_x + mid_n) / tex_dimensions.x;
 
-    // Midpoint index for x
-    int mid_index_x = start_idx_x + n / 2;
-    float mid_x_0 = texelFetch(x_texture, ivec2(mid_index_x, start_idx_y), 0).r;
-    float mid_x_1 = texelFetch(x_texture, ivec2(mid_index_x, start_idx_y), 0).g;
+    mid_x_0 = texelFetch(x_texture, ivec2(mid_idx_x, mid_idx_y), 0).r;
+    mid_x_1 = texelFetch(x_texture, ivec2(mid_idx_x, mid_idx_y), 0).g;
+
 
     FragColor0 = vec4(mid_x_0, mid_x_1, 0.0, 0.0);
     FragColor1 = vec4(open_val, high_val, low_val, close_val);
