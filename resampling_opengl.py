@@ -337,6 +337,9 @@ def resample_opengl(data, n_value, batch_size=1000000):
     unreliable_OHLC_size = batch_size % n_value # The last OHLC in a batch is this size and calculated without full data.
     resampled_batches = []
     resampled_batch = ['delete this']
+    import pdb
+    pdb.set_trace()
+
     while batch_start < len(data):
         if unreliable_OHLC_size == 0:
             resampled_batches.append(resampled_batch)
@@ -346,7 +349,20 @@ def resample_opengl(data, n_value, batch_size=1000000):
         relevant_data = data[batch_start:batch_end]
         output_batch_size = math.ceil(len(relevant_data) / n_value) * 4
         if batch_end > len(data):
-            padding = batch_end - len(data)
+            num_full_groups = len(relevant_data) // n_value
+            num_groups = len(relevant_data) / n_value
+
+            repeated_padding_needed = 0
+            if num_groups != num_full_groups:
+                # The resampler will think zeroes are OHLC values if this ain't done.
+                desired_num_groups = num_full_groups + 1
+                desired_length = desired_num_groups * n_value
+                repeated_padding_needed = desired_length - len(relevant_data)
+                last_datapoint = relevant_data[-1]
+                repeated_data = np.array([last_datapoint] * repeated_padding_needed)
+                relevant_data = np.concatenate((relevant_data, repeated_data))
+
+            padding = batch_end - len(data) - repeated_padding_needed
             padded_data = np.pad(relevant_data, ((0, padding), (0, 0)), 'constant')
             resampled_batch = resample_opengl_1M(padded_data, n_value)[0:output_batch_size]
         else:
@@ -355,8 +371,6 @@ def resample_opengl(data, n_value, batch_size=1000000):
 
     resampled_batches.append(resampled_batch[0:output_batch_size])
 
-#     import pdb
-#     pdb.set_trace()
 # 
     combined_array = np.concatenate(resampled_batches[1:], axis=0)
     return combined_array

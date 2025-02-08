@@ -61,3 +61,17 @@ def debug_shit():
     # %%
     data[:, 1][group*resampling_n:group*resampling_n+resampling_n] # each group is 6 elements long
 
+
+[len(r) for r in resampled_batches]
+
+
+# %%
+resampling_n = 6
+data = generate_random_walk(10000000, step_size=0.5)
+
+t0 = perf_counter_ns()
+resample_1 = resample_opengl(data, resampling_n)
+t1 = perf_counter_ns()
+resample_2 = LineGraphSequential.resample(None, data, resampling_n)
+t2 = perf_counter_ns()
+# %%
