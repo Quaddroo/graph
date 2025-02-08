@@ -334,20 +334,31 @@ void main() {
 
 def resample_opengl(data, n_value, batch_size=1000000):
     batch_start = 0
+    unreliable_OHLC_size = batch_size % n_value # The last OHLC in a batch is this size and calculated without full data.
     resampled_batches = []
+    resampled_batch = ['delete this']
     while batch_start < len(data):
+        if unreliable_OHLC_size == 0:
+            resampled_batches.append(resampled_batch)
+        else:
+            resampled_batches.append(resampled_batch[0:-1*unreliable_OHLC_size])
         batch_end = batch_start + batch_size
         relevant_data = data[batch_start:batch_end]
+        output_batch_size = math.ceil(len(relevant_data) / n_value) * 4
         if batch_end > len(data):
             padding = batch_end - len(data)
             padded_data = np.pad(relevant_data, ((0, padding), (0, 0)), 'constant')
-            resampled_batch = resample_opengl_1M(padded_data, n_value)[:len(relevant_data)]
+            resampled_batch = resample_opengl_1M(padded_data, n_value)[0:output_batch_size]
         else:
             resampled_batch = resample_opengl_1M(relevant_data, n_value)
-        resampled_batches.append(resampled_batch)
-        batch_start = batch_end
+        batch_start = batch_end - unreliable_OHLC_size # 
 
-    combined_array = np.concatenate(resampled_batches, axis=0)
+    resampled_batches.append(resampled_batch[0:output_batch_size])
+
+#     import pdb
+#     pdb.set_trace()
+# 
+    combined_array = np.concatenate(resampled_batches[1:], axis=0)
     return combined_array
 
 def resample_opengl_old(data, n_value, batch_size):
