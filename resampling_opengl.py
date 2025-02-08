@@ -123,7 +123,20 @@ def prep_timestamps_for_texture(data):
     data = np.stack([t1, t2, zeros, zeros], axis=-1)
     return data
 
-def create_texture(data, texture_unit, fallback_width=None, fallback_height=None):
+def prep_timestamps_for_texture_alt(data):
+    t1, t2 = split_timestamps_into_f32(data)    
+    data = np.stack([t1, t2], axis=-1)
+    return data
+
+
+def create_texture(data, texture_unit, fallback_width=None, fallback_height=None, colour_channels="1111"):
+    if colour_channels == "1111":
+        g_format = GL_RGBA
+    elif colour_channels == "1100":
+        g_format = GL_RG
+    elif colour_channels == "1000":
+        g_format = GL_RED
+    
     # TODO: WTF IS TEXTURE UNIT? IT SHOULD BE UNIQUE? GUARANTEE UNIQUENESS!!??
     if data is None:
         if not fallback_width or not fallback_height:
@@ -149,7 +162,7 @@ def create_texture(data, texture_unit, fallback_width=None, fallback_height=None
     
     # Create texture
     # 97.5% of time in this call:
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, data)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, g_format, GL_FLOAT, data)
     
     return texture_id
 
@@ -229,14 +242,14 @@ def generate_initial_data_textures(random_walk_data, width, height):
     y_length = len(y) 
 
 #     zeros_like_array = np.zeros_like(x) << optimizing like this makes the code barely slower overall.
-    x = prep_timestamps_for_texture(x) # 46.8% of time in this function
-    y = prep_data_for_texture(y) # 16.1% of time in this function
-    x_reshaped = x.reshape(width, height, 4)
-    y_reshaped = y.reshape(width, height, 4)
+    x = prep_timestamps_for_texture_alt(x) # 46.8% of time in this function
+#     y = prep_data_for_texture(y) # 16.1% of time in this function
+    x_reshaped = x.reshape(width, height, 2)
+    y_reshaped = y.reshape(width, height)
 
-    x_texture_id = create_texture(x_reshaped, 0) # 22.6% of time in this call
+    x_texture_id = create_texture(x_reshaped, 0, colour_channels="1100") #, colour_channels="1100") # 22.6% of time in this call
 
-    y_texture_id = create_texture(y_reshaped, 1) # 15.1% of time in this call
+    y_texture_id = create_texture(y_reshaped, 1, colour_channels="1000") # 15.1% of time in this call
 
     return x_texture_id, y_texture_id
 
