@@ -9,14 +9,15 @@ import numpy as np
 from time import perf_counter_ns
 
 # %%
-data = generate_random_walk(5000000, step_size=0.5)
+data = generate_random_walk(1000000, step_size=0.5)
+resampling_n = 5
 
 setup_pygame() # This sets up an opengl environment. Since it must occur no matter what when launching Graph, it is unfair to include in the performance.
 
 t0 = perf_counter_ns()
-resample_1 = resample_opengl(data, 4)
+resample_1 = resample_opengl(data, resampling_n)
 t1 = perf_counter_ns()
-resample_2 = LineGraphSequential.resample(None, data, 4)
+resample_2 = LineGraphSequential.resample(None, data, resampling_n)
 t2 = perf_counter_ns()
 
 assert np.all(resample_1[:, 1] == resample_2[:, 1])

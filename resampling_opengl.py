@@ -171,8 +171,7 @@ def render_fullscreen_quad(vao, shader_program, n_value):
     glUseProgram(shader_program) # Make sure shader_program is your compiled shader program ID
     n_location = glGetUniformLocation(shader_program, "n")
 
-    n_value = 4  # Set this to the desired group size
-    glUniform1i(n_location, n_value)
+    glUniform1i(n_location, n_value) # set the var to the desired group size
 
     # Draw the quad
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
@@ -391,16 +390,19 @@ def resample_opengl_1M(data, n_value):
     # 24.8% of time is spent in this call
     results_0, results_1 = get_resulting_pixeldata(framebuffer, width, height)
 
-    new_ys = np.frombuffer(results_1, dtype=np.float32).reshape(-1, 4).reshape(-1, 1)[0:1000000]
+    expected_group_count = len(data) // n_value
+    expected_output_len = expected_group_count * 4 # O H L C
+
+    new_ys = np.frombuffer(results_1, dtype=np.float32).reshape(-1, 4).reshape(-1, 1)[0:expected_output_len]
 
     new_xs_0 = np.frombuffer(results_0, dtype=np.float32).reshape(-1, 4)[:, 1].reshape(-1, 1)
 
     new_xs_1 = np.frombuffer(results_0, dtype=np.float32).reshape(-1, 4)[:, 0].reshape(-1, 1)
 
     # 8.5% of time is spent in this call
-    new_xs = combine_timestamps_into_f64(new_xs_0, new_xs_1)[0:1000000//n_value]
+    new_xs = combine_timestamps_into_f64(new_xs_0, new_xs_1)[0:expected_group_count]
 
-    new_xs = np.repeat(new_xs, 4)
+    new_xs = np.repeat(new_xs, 4) # each x used to correspond to 1 y; now each x corresponds to O, H, L, C
 
     final_resampled_array = np.column_stack((new_xs, new_ys))
 
