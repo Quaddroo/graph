@@ -1,4 +1,6 @@
 # %%
+from pygame.locals import *
+from resampling_opengl import resample_opengl, setup_glfw
 import pygame
 import numpy as np
 import traceback
@@ -582,15 +584,17 @@ class LineGraphSequential(LineGraph):
         # TODO: automatic or more systematic or something:
         self.data_sampling_choices = [
             1,
-            5,
-            15,
-            60,
+            # 5, Sampling close to 4 = len(O, H, L, C) doesn't actually affect data density
+            5 * 4, # this is real slow, openGL makes it decent
+#             40,
+            15 * 4,
             60 * 4,
-            60 * 12,
-            60 * 24,
-            60 * 24 * 7,
-            60 * 24 * 7 * 5,
-            60 * 24 * 7 * 5 * 12
+            60 * 4 * 4,
+            60 * 12 * 4,
+            60 * 24 * 4,
+            60 * 24 * 7 * 4,
+            60 * 24 * 7 * 5 * 4,
+            60 * 24 * 7 * 5 * 12 * 4
             ]
         
 #         self.data_sampling_choices = np.array(self.data_sampling_choices)
@@ -650,7 +654,7 @@ class LineGraphSequential(LineGraph):
         self.preparation_process.join()
 
     def pre_prepare_cached_resamples(self):
-        for data_sampling_choice in self.data_sampling_choices:
+        for data_sampling_choice in reversed(self.data_sampling_choices):
             if self.terminating.value:
                 print("terminating pre_prepare_cached_resamples early")
                 return
@@ -916,7 +920,11 @@ class LineGraphSequential(LineGraph):
         else:
             if n not in self.cached_resamples.keys():
                 print("doing hard calculations")
-                self.cached_resamples[n] = self.resample(self.initial_data, n)
+                if n < 25: #OpenGL is faster in these cases.
+                    setup_glfw()
+                    self.cached_resamples[n] = resample_opengl(self.initial_data, n)
+                else:
+                    self.cached_resamples[n] = self.resample(self.initial_data, n)
             else:
                 print("using cache")
             return self.cached_resamples[n]

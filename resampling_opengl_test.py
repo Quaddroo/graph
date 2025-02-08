@@ -2,7 +2,7 @@
 %load_ext autoreload
 %autoreload 2
 
-from resampling_opengl import resample_opengl, setup_environment, setup_pygame, generate_initial_data_textures, prep_data_for_texture, split_timestamps_into_f32, get_resulting_pixeldata, resample_opengl_1M
+from resampling_opengl import resample_opengl, setup_environment, setup_pygame, generate_initial_data_textures, prep_data_for_texture, split_timestamps_into_f32, get_resulting_pixeldata, resample_opengl_1M, setup_glfw
 from graph import LineGraphSequential
 from utils import generate_random_walk
 import numpy as np
@@ -10,7 +10,7 @@ from time import perf_counter_ns
 
 # %%
 
-setup_pygame() # This sets up an opengl environment. Since it must occur no matter what when launching Graph, it is unfair to include in the performance comparison.
+# setup_pygame() # This sets up an opengl environment. Since it must occur no matter what when launching Graph, it is unfair to include in the performance comparison.
 
 resampling_ns = range(4, 11)
 data_amounts = (543643, 1000000, 10000000)
@@ -23,6 +23,7 @@ for resampling_n in resampling_ns:
         data = generate_random_walk(data_amount, step_size=0.5)
 
         t0 = perf_counter_ns()
+        setup_glfw() # need this after all, but basically no perf impact
         resample_1 = resample_opengl(data, resampling_n)
         t1 = perf_counter_ns()
         resample_2 = LineGraphSequential.resample(None, data, resampling_n)
@@ -74,3 +75,5 @@ def debug_shit():
 
 
     sum([len(r) for r in resampled_batches])
+
+print(f"OpenGL/Numba: {(t1-t0)/(t2-t1)}")

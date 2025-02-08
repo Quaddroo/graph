@@ -6,10 +6,28 @@ import numpy as np
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileShader, compileProgram
 from OpenGL.GL.framebufferobjects import *
-
+import glfw
 import time
 
 # %%
+
+def setup_glfw():
+    # Initialize GLFW
+    if not glfw.init():
+        raise Exception("GLFW initialization failed")
+    
+    # Set OpenGL version and profile
+    glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
+    glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
+    glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+    
+    # Create hidden window to set the OpenGL context
+    window = glfw.create_window(800, 600, "OpenGL Context", None, None)
+    glfw.hide_window(window)
+    glfw.make_context_current(window)
+    
+    return window
+
 def split_timestamps_into_f32(timestamps):
     divided_timestamps = timestamps/100000
     r1, r2 = np.modf(divided_timestamps)
