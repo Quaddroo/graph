@@ -1,6 +1,6 @@
 # %%
 from pygame.locals import *
-from resampling_opengl import resample_opengl, setup_glfw
+from .resampling_opengl import resample_opengl, setup_glfw
 import pygame
 import numpy as np
 import traceback
@@ -765,8 +765,44 @@ class LineGraphSequential(LineGraph):
 
     @staticmethod
     @jit(nopython=True)
+    def find_indices_new(startx, endx, data_to_cut, initial_step=100):
+        index0, index1 = -1, -1
+        step = initial_step
+        n = len(data_to_cut)
+
+        # Finding index0
+        i = 0
+        while i < n:
+            if startx < data_to_cut[i]:
+                while step > 1:
+                    i -= step
+                    step //= 10
+                    while i + step < n and startx >= data_to_cut[i + step]:
+                        i += step
+                index0 = i + 1
+                break
+            i += step
+
+        # Reset step size for index1 search
+        step = initial_step
+
+        # Finding index1
+        while i < n:
+            if endx < data_to_cut[i]:
+                while step > 1:
+                    i -= step
+                    step //= 10
+                    while i + step < n and endx >= data_to_cut[i + step]:
+                        i += step
+                index1 = i + 1
+                break
+            i += step
+
+        return index0, index1
+    @staticmethod
+    @jit(nopython=True)
     def find_indices(startx, endx, data_to_cut):
-        """return the index when data_to_cut is greater than startx"""
+        """return the indices when data_to_cut is greater than startx and endx"""
         index0 = -1
         index1 = -1
 

@@ -2,9 +2,9 @@
 %load_ext autoreload
 %autoreload 2
 
-from resampling_opengl import resample_opengl, setup_environment, setup_pygame, generate_initial_data_textures, prep_data_for_texture, split_timestamps_into_f32, get_resulting_pixeldata, resample_opengl_1M, setup_glfw, prep_timestamps_for_texture, prep_timestamps_for_texture_alt
-from graph import LineGraphSequential
-from utils import generate_random_walk
+from .resampling_opengl import resample_opengl, setup_environment, setup_pygame, generate_initial_data_textures, prep_data_for_texture, split_timestamps_into_f32, get_resulting_pixeldata, resample_opengl_1M, setup_glfw, prep_timestamps_for_texture, prep_timestamps_for_texture_alt
+from .graph import LineGraphSequential
+from .utils import generate_random_walk
 import numpy as np
 from time import perf_counter_ns
 

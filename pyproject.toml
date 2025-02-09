@@ -1,0 +1,24 @@
+[project]
+name = "graph"
+version = "0.0.1"
+authors = [
+  { name="quad", email="fake@email.ru" },
+]
+description = "Fast charts"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+	"glfw==2.8.0",
+	"numba==0.61.0",
+	"numpy==2.1.3",
+	"pygame==2.6.1",
+	"PyOpenGL==3.1.9",
+]
+
+[project.urls]
+Homepage = "https://github.com/Quaddroo/graph"
+Issues = "https://github.com/Quaddroo/graph/issues"
