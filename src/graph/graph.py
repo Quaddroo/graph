@@ -649,12 +649,13 @@ class LineGraphSequential(LineGraph):
 #             _thread.start_new_thread(self.pre_prepare_cached_resamples, ())
 
     def prepare_for_quit(self):
-        self.terminating.value = True
-        print("terminating preparation process")
-        self.preparation_process.terminate()
-        print("preparation process terminated")
-        print("joining preparation process")
-        self.preparation_process.join()
+        if hasattr(self, preparation_process):
+            self.terminating.value = True
+            print("terminating preparation process")
+            self.preparation_process.terminate()
+            print("preparation process terminated")
+            print("joining preparation process")
+            self.preparation_process.join()
 
     def pre_prepare_cached_resamples(self):
         for data_sampling_choice in reversed(self.data_sampling_choices):
