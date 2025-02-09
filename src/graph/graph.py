@@ -114,7 +114,7 @@ class GraphObject:
     def delete(self):
         raise NotImplementedError()
 
-    def prepare_for_quit():
+    def prepare_for_quit(self):
         pass
 
     def identify(self, x0, y0, x1, y1, x_is_date):
